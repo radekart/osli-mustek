@@ -1,0 +1,11 @@
+{
+  "name": "Oslí můstek",
+  "short_name": "Oslí můstek",
+  "description": "Angličtina přes české zvukové můstky",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F4F8",
+  "theme_color": "#2B44D6",
+  "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}
