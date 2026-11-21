@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const APP_VER=8;
+const APP_VER=9;
 const KEY='osli-mustek.v2', DAY=864e5;
 const INT=[0,0,DAY,3*DAY,7*DAY,21*DAY];
 const LEVELS=['A2','B1','B2','C1','C2'];
@@ -311,10 +311,10 @@ function home(keep){
     <div class="row"><span>Výslovnost</span><div class="seg">
       <button data-act="accent" data-v="en-GB" aria-pressed="${SET().accent==='en-GB'}">Britská</button>
       <button data-act="accent" data-v="en-US" aria-pressed="${SET().accent==='en-US'}">Americká</button></div></div>
-    <div class="row" style="justify-content:flex-end"><button class="btn small ${draft&&dirty()?"":"ghost"}" data-act="saveSet">Potvrdit</button></div>
     <div class="row"><span>Účet</span>${FB.user?`<button class="btn ghost small" data-act="logout">Odhlásit</button>`:FB.ready?`<button class="btn soft small" data-act="login">Přihlásit přes Google</button>`:'<span class="muted" style="font-size:14px">synchronizace není nastavená</span>'}</div>
     <div class="row"><span>Záloha postupu</span><div class="row"><button class="btn ghost small" data-act="export">Stáhnout</button><button class="btn ghost small" data-act="import">Nahrát</button></div></div>
     <p class="muted" style="font-size:14px">Na mobilu si aplikaci přidej na plochu: v prohlížeči zvol Sdílet nebo menu ⋮ a pak „Přidat na plochu“. <b>Verze ${APP_VER}</b></p>
+    <div style="display:flex;justify-content:center;margin-top:4px"><button class="btn ${dirty()?"":"soft"}" style="min-width:220px" data-act="saveSet">${dirty()?"Potvrdit změny":"Potvrdit"}</button></div>
   </section>`,keep);
 }
 
