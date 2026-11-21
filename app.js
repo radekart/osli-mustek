@@ -153,27 +153,45 @@ function pickVoice(lang){
   const list=voices.filter(v=>norm(v)===l);
   return list.find(v=>/natural|neural|google|premium|enhanced/i.test(v.name))||list[0]||voices.find(v=>norm(v).startsWith(l.slice(0,2)));
 }
+// Záloha pro mobily bez hlasu: přehraje zvukový soubor z internetu.
+const AUD=new Audio();AUD.preload='auto';
+const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+let useAudio=false;
+function ttsUrl(text,lang){return 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl='+encodeURIComponent(lang.startsWith('cs')?'cs':lang)+'&q='+encodeURIComponent(text.slice(0,200));}
+function playAudio(text,lang,rate,onend){
+  // Google zvuk vrací jen bez hlavičky Referer.
+  if(!document.querySelector('meta[name=referrer]')){const m=document.createElement('meta');m.name='referrer';m.content='no-referrer';document.head.appendChild(m);}
+  AUD.onended=onend||null;AUD.onerror=()=>toast('Zvuk se nepodařilo načíst. Jsi připojený k internetu?');
+  AUD.src=ttsUrl(text,lang);
+  try{AUD.playbackRate=rate&&rate<0.7?0.7:1;}catch(e){}
+  const p=AUD.play();if(p&&p.catch)p.catch(()=>toast('Telefon zvuk zablokoval. Ťukni na reproduktor a zkontroluj hlasitost i tichý režim.'));
+}
 function speak(text,lang,rate,onend){
-  if(!('speechSynthesis' in window)){toast('Tento prohlížeč neumí číst nahlas.');return;}
-  const ss=speechSynthesis,v=pickVoice(lang);
-  if(lang.startsWith('cs')&&!v){toast('Zařízení nemá český hlas. Příběh si přečti nahlas sám.');return;}
+  const ss=window.speechSynthesis;
+  if(!ss||useAudio){playAudio(text,lang,rate,onend);return;}
+  if(!voices.length)loadVoices();
+  const v=pickVoice(lang);
+  if(!voices.length||!v){playAudio(text,lang,rate,onend);return;}
   const u=new SpeechSynthesisUtterance(text);
-  u.lang=lang;if(v)u.voice=v;u.rate=rate||0.95;
+  u.lang=lang;u.voice=v;u.rate=rate||0.95;
+  let started=false;u.onstart=()=>{started=true;};
   if(onend)u.onend=onend;
   window._utt=u; // mobilní Chrome jinak utterance zahodí dřív, než doběhne
-  // Na mobilech se speak() hned po cancel() často ztratí, proto chvilku počkat.
   const busy=ss.speaking||ss.pending;
   if(busy)ss.cancel();
-  const go=()=>{try{ss.resume();}catch(e){}ss.speak(u);};
+  const go=()=>{try{ss.resume();}catch(e){}ss.speak(u);
+    // Když telefon nezačne mluvit do 1,5 s, přepni na zvukové soubory.
+    setTimeout(()=>{if(!started){try{ss.cancel();}catch(e){}useAudio=true;playAudio(text,lang,rate,onend);}},1500);};
   if(busy)setTimeout(go,120);else go();
 }
-// iPhone/Android pustí zvuk až po prvním dotyku: při prvním ťuknutí "odemknout" řeč.
+// iPhone/Android pustí zvuk až po prvním dotyku: při prvním ťuknutí "odemknout" řeč i přehrávač.
 let speechUnlocked=false;
 function unlockSpeech(){
-  if(speechUnlocked||!('speechSynthesis' in window))return;speechUnlocked=true;
-  try{loadVoices();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch(e){}
+  if(speechUnlocked)return;speechUnlocked=true;
+  try{AUD.src=SILENT;const p=AUD.play();if(p&&p.catch)p.catch(()=>{});}catch(e){}
+  try{if(window.speechSynthesis){loadVoices();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}}catch(e){}
 }
-['touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,unlockSpeech,{capture:true,once:false,passive:true}));
+['touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,unlockSpeech,{capture:true,passive:true}));
 const sayEn=(t,slow)=>speak(t,S.settings.accent,slow?0.55:0.9);
 function sayTimes(t,n){let i=0;const go=()=>{if(i++<n)speak(t,S.settings.accent,0.85,()=>setTimeout(go,700));};go();}
 
@@ -541,7 +559,7 @@ const A={
   story:t=>{const w=byId(t.dataset.id);if(w)speak(storyPlain(w),'cs-CZ',0.95);},
   tryEn:()=>{const v=document.getElementById('fEn').value.trim();if(v)sayEn(v);else toast('Nejdřív napiš anglické slovo.');},
   studied:()=>{SES.queue.shift();next();},
-  quit:()=>{if('speechSynthesis' in window)speechSynthesis.cancel();home();},
+  quit:()=>{if('speechSynthesis' in window)speechSynthesis.cancel();try{AUD.pause();}catch(e){}home();},
   next:()=>next(),
   known:t=>{const id=t.dataset.id;setProgress(id,{...prog(id),box:5,due:Date.now()+21*DAY});toast('Označeno jako známé. Za pár týdnů ti ho připomenu.');home();window.scrollTo(0,backScroll);},
   pick:t=>{
