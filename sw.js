@@ -1,6 +1,6 @@
 // Offline podpora: vždy zkusí síť (aby byla vidět nejnovější verze), bez sítě vrátí uloženou kopii.
-const CACHE='osli-mustek-v4';
-const SHELL=['./','index.html','app.js','firebase-config.js','manifest.webmanifest','icon.svg','words/A2.json','words/B1.json','words/B2.json','words/C1.json','words/STAVBA.json'];
+const CACHE='osli-mustek-v5';
+const SHELL=['./','index.html','app.js','firebase-config.js','manifest.webmanifest','icon.svg','words/A2.json','words/B1.json','words/B2.json','words/C1.json','words/C2.json','words/STAVBA.json'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{

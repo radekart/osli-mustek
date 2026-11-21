@@ -2,10 +2,10 @@
 'use strict';
 const KEY='osli-mustek.v2', DAY=864e5;
 const INT=[0,0,DAY,3*DAY,7*DAY,21*DAY];
-const LEVELS=['A2','B1','B2','C1'];
+const LEVELS=['A2','B1','B2','C1','C2'];
 const PRO='STAVBA';
 const TRACKS=[...LEVELS,PRO];
-const TRACK_NAME={A2:'A2',B1:'B1',B2:'B2',C1:'C1',STAVBA:'Statika'};
+const TRACK_NAME={A2:'A2',B1:'B1',B2:'B2',C1:'C1',C2:'C2',STAVBA:'Statika'};
 const CATS=['Zvířata','Příroda','Doma','Věci','Jídlo','Vlastnosti','Tělo','Slovesa','Pocity','Lidé','Abstraktní','Práce','Cestování','Společnost','Věda','Stavba'];
 const HUE={'Zvířata':32,'Příroda':150,'Doma':255,'Věci':200,'Jídlo':95,'Vlastnosti':330,'Tělo':8,'Slovesa':50,'Pocity':300,'Lidé':20,'Abstraktní':175,'Práce':225,'Cestování':185,'Společnost':345,'Věda':270,'Stavba':40};
 const PRO_MIX=[{v:0,t:'Žádná'},{v:0.2,t:'Trochu'},{v:0.5,t:'Půl na půl'},{v:1,t:'Jen obor'}];
@@ -268,9 +268,9 @@ function home(keep){
     </div>
   </section>
   <section class="card">
-    <div class="label">Cesta k C1</div>
+    <div class="label">Cesta k C2</div>
     <div class="levels">${TRACKS.map(L=>{const v=c.lv[L]||{t:0,k:0,l:0};if(!v.t)return '';const kp=v.k/v.t*100,lp=v.l/v.t*100;
-      return `${L===PRO?'<div class="label" style="margin-top:8px">Obor</div>':''}<button class="lvl" data-act="lvl" data-v="${L}"><span class="lv" style="${L===PRO?'font-size:15px':''}">${TRACK_NAME[L]}</span><span class="lbar"><i class="k" style="width:${kp}%"></i><i class="l" style="width:${lp}%"></i></span><span class="lnum">${v.k} / ${v.t}${L==='C1'?'<span class="goal">cíl</span>':''}</span></button>`;}).join('')}</div>
+      return `${L===PRO?'<div class="label" style="margin-top:8px">Obor</div>':''}<button class="lvl" data-act="lvl" data-v="${L}"><span class="lv" style="${L===PRO?'font-size:15px':''}">${TRACK_NAME[L]}</span><span class="lbar"><i class="k" style="width:${kp}%"></i><i class="l" style="width:${lp}%"></i></span><span class="lnum">${v.k} / ${v.t}${L==='C2'?'<span class="goal">cíl</span>':''}</span></button>`;}).join('')}</div>
     <div class="legend"><span><i style="background:var(--good)"></i>umím</span><span><i style="background:var(--learn)"></i>učím se</span><span><i style="background:var(--line)"></i>nová</span></div>
   </section>
   <section id="list" style="display:flex;flex-direction:column;gap:12px">
@@ -283,14 +283,15 @@ function home(keep){
   <section class="card settings">
     <div class="label">Nastavení</div>
     <div class="row"><span>Obecná slova z úrovně</span><div class="seg">
-      ${['auto',...LEVELS].map(v=>`<button data-act="newlvl" data-v="${v}" aria-pressed="${S.settings.newLevel===v}">${v==='auto'?'Postupně':v}</button>`).join('')}</div></div>
+      ${['auto',...LEVELS].map(v=>`<button data-act="newlvl" data-v="${v}" aria-pressed="${SET().newLevel===v}">${v==='auto'?'Postupně':v}</button>`).join('')}</div></div>
     <div class="row"><span>Slova ze statiky v lekci</span><div class="seg">
-      ${PRO_MIX.map(o=>`<button data-act="promix" data-v="${o.v}" aria-pressed="${S.settings.proMix===o.v}">${o.t}</button>`).join('')}</div></div>
+      ${PRO_MIX.map(o=>`<button data-act="promix" data-v="${o.v}" aria-pressed="${SET().proMix===o.v}">${o.t}</button>`).join('')}</div></div>
     <div class="row"><span>Nových slov v lekci</span><div class="seg">
-      ${[3,5,8,12].map(n=>`<button data-act="per" data-v="${n}" aria-pressed="${S.settings.perLesson===n}">${n}</button>`).join('')}</div></div>
+      ${[3,5,8,12].map(n=>`<button data-act="per" data-v="${n}" aria-pressed="${SET().perLesson===n}">${n}</button>`).join('')}</div></div>
     <div class="row"><span>Výslovnost</span><div class="seg">
-      <button data-act="accent" data-v="en-GB" aria-pressed="${S.settings.accent==='en-GB'}">Britská</button>
-      <button data-act="accent" data-v="en-US" aria-pressed="${S.settings.accent==='en-US'}">Americká</button></div></div>
+      <button data-act="accent" data-v="en-GB" aria-pressed="${SET().accent==='en-GB'}">Britská</button>
+      <button data-act="accent" data-v="en-US" aria-pressed="${SET().accent==='en-US'}">Americká</button></div></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn small ${draft&&dirty()?"":"ghost"}" data-act="saveSet" ${draft&&dirty()?"":"disabled"}>Potvrdit</button></div>
     <div class="row"><span>Účet</span>${FB.user?`<button class="btn ghost small" data-act="logout">Odhlásit</button>`:FB.ready?`<button class="btn soft small" data-act="login">Přihlásit přes Google</button>`:'<span class="muted" style="font-size:14px">synchronizace není nastavená</span>'}</div>
     <div class="row"><span>Záloha postupu</span><div class="row"><button class="btn ghost small" data-act="export">Stáhnout</button><button class="btn ghost small" data-act="import">Nahrát</button></div></div>
     <p class="muted" style="font-size:14px">Na mobilu si aplikaci přidej na plochu: v prohlížeči zvol Sdílet nebo menu ⋮ a pak „Přidat na plochu“.</p>
@@ -514,6 +515,11 @@ function importBackup(file){
 
 // ---------- events ----------
 const keepHome=()=>home(true);
+// Nastavení se mění nanečisto a uloží se až tlačítkem Potvrdit.
+let draft=null;
+const SET=()=>draft||S.settings;
+const dirty=()=>!!draft&&Object.keys(draft).some(k=>draft[k]!==S.settings[k]);
+function setDraft(k,v){draft={...SET(),[k]:v};keepHome();}
 const A={
   home:()=>home(), add:addView,
   back:()=>{home();window.scrollTo(0,backScroll);},
@@ -522,10 +528,11 @@ const A={
   filter:t=>{filter=t.dataset.v;limit=40;keepHome();},
   lvl:t=>{filter=t.dataset.v;limit=40;keepHome();document.getElementById('list')?.scrollIntoView({behavior:'smooth',block:'start'});},
   more:()=>{limit+=40;keepHome();},
-  accent:t=>{S.settings.accent=t.dataset.v;touchMeta();keepHome();sayEn('Hello');},
-  per:t=>{S.settings.perLesson=+t.dataset.v;touchMeta();keepHome();},
-  newlvl:t=>{S.settings.newLevel=t.dataset.v;touchMeta();keepHome();},
-  promix:t=>{S.settings.proMix=+t.dataset.v;touchMeta();keepHome();},
+  accent:t=>{setDraft('accent',t.dataset.v);speak('Hello',t.dataset.v,0.9);},
+  per:t=>setDraft('perLesson',+t.dataset.v),
+  newlvl:t=>setDraft('newLevel',t.dataset.v),
+  promix:t=>setDraft('proMix',+t.dataset.v),
+  saveSet:()=>{if(!draft)return;S.settings={...S.settings,...draft};draft=null;touchMeta();keepHome();toast('Nastavení uloženo, lekce se řídí novým nastavením.');},
   login:()=>FB.signIn(), logout:()=>FB.signOut(),
   export:exportBackup,
   import:()=>document.getElementById('importFile').click(),
