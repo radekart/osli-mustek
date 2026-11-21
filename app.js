@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const APP_VER=10;
+const APP_VER=11;
 const KEY='osli-mustek.v2', DAY=864e5;
 const INT=[0,0,DAY,3*DAY,7*DAY,21*DAY];
 const LEVELS=['A2','B1','B2','C1','C2'];
@@ -154,6 +154,9 @@ function pickVoice(lang){
   const list=voices.filter(v=>norm(v)===l);
   return list.find(v=>/natural|neural|google|premium|enhanced/i.test(v.name))||list[0]||voices.find(v=>norm(v).startsWith(l.slice(0,2)));
 }
+// Na mobilech hlas telefonu často mlčí, proto tam výchozí zvuk jde z internetu.
+const IS_MOBILE=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(window.matchMedia&&matchMedia('(pointer:coarse)').matches);
+function audioMode(){const v=SET().audioSrc;return v==='voice'||v==='net'?v:(IS_MOBILE?'net':'voice');}
 // Záloha pro mobily bez hlasu: přehraje zvukový soubor z internetu.
 const AUD=new Audio();AUD.preload='auto';
 const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
@@ -169,7 +172,7 @@ function playAudio(text,lang,rate,onend){
 }
 function speak(text,lang,rate,onend){
   const ss=window.speechSynthesis;
-  if(!ss||useAudio||SET().audioSrc==='net'){playAudio(text,lang,rate,onend);return;}
+  if(!ss||useAudio||audioMode()==='net'){playAudio(text,lang,rate,onend);return;}
   if(!voices.length)loadVoices();
   const v=pickVoice(lang);
   if(!voices.length||!v){playAudio(text,lang,rate,onend);return;}
@@ -319,7 +322,7 @@ function home(keep){
       ${PRO_MIX.map(o=>`<button data-act="promix" data-v="${o.v}" aria-pressed="${SET().proMix===o.v}">${o.t}</button>`).join('')}</div></div>
     <div class="row"><span>Nových slov v lekci</span><div class="seg">
       ${[3,5,8,12].map(n=>`<button data-act="per" data-v="${n}" aria-pressed="${SET().perLesson===n}">${n}</button>`).join('')}</div></div>
-    <div class="row"><span>Zdroj zvuku</span><div class="seg"><button data-act="audiosrc" data-v="auto" aria-pressed="${SET().audioSrc!=='net'}">Hlas telefonu</button><button data-act="audiosrc" data-v="net" aria-pressed="${SET().audioSrc==='net'}">Z internetu</button></div></div>
+    <div class="row"><span>Zdroj zvuku</span><div class="seg"><button data-act="audiosrc" data-v="voice" aria-pressed="${audioMode()==='voice'}">Hlas telefonu</button><button data-act="audiosrc" data-v="net" aria-pressed="${audioMode()==='net'}">Z internetu</button></div></div>
     <div class="row"><span>Zvuk</span><button class="btn ghost small" data-act="soundTest">Vyzkoušet zvuk</button></div>
     <div class="row"><span>Výslovnost</span><div class="seg">
       <button data-act="accent" data-v="en-GB" aria-pressed="${SET().accent==='en-GB'}">Britská</button>
@@ -576,7 +579,7 @@ const A={
   story:t=>{const w=byId(t.dataset.id);if(w)speak(storyPlain(w),'cs-CZ',0.95);},
   tryEn:()=>{const v=document.getElementById('fEn').value.trim();if(v)sayEn(v);else toast('Nejdřív napiš anglické slovo.');},
   studied:()=>{SES.queue.shift();next();},
-  soundTest:()=>{toast('Přehrávám zkušební zvuk…');const mode=useAudio||SET().audioSrc==='net'||!window.speechSynthesis||!pickVoice(S.settings.accent)?'zvukový soubor z internetu':'hlas telefonu';toast('Přehrávám „Hello“ ('+mode+'). Verze aplikace '+APP_VER+'.');speak('Hello, this is a test.',SET().accent,0.9);},
+  soundTest:()=>{toast('Přehrávám zkušební zvuk…');const mode=useAudio||audioMode()==='net'||!window.speechSynthesis||!pickVoice(S.settings.accent)?'zvukový soubor z internetu':'hlas telefonu';toast('Přehrávám „Hello“ ('+mode+'). Verze aplikace '+APP_VER+'.');speak('Hello, this is a test.',SET().accent,0.9);},
   quit:()=>{if('speechSynthesis' in window)speechSynthesis.cancel();try{AUD.pause();}catch(e){}home();},
   next:()=>next(),
   known:t=>{const id=t.dataset.id;setProgress(id,{...prog(id),box:5,due:Date.now()+21*DAY});toast('Označeno jako známé. Za pár týdnů ti ho připomenu.');home();window.scrollTo(0,backScroll);},
