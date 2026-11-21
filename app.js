@@ -155,14 +155,25 @@ function pickVoice(lang){
 }
 function speak(text,lang,rate,onend){
   if(!('speechSynthesis' in window)){toast('Tento prohlížeč neumí číst nahlas.');return;}
-  const v=pickVoice(lang);
+  const ss=speechSynthesis,v=pickVoice(lang);
   if(lang.startsWith('cs')&&!v){toast('Zařízení nemá český hlas. Příběh si přečti nahlas sám.');return;}
-  speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);
   u.lang=lang;if(v)u.voice=v;u.rate=rate||0.95;
   if(onend)u.onend=onend;
-  speechSynthesis.speak(u);
+  window._utt=u; // mobilní Chrome jinak utterance zahodí dřív, než doběhne
+  // Na mobilech se speak() hned po cancel() často ztratí, proto chvilku počkat.
+  const busy=ss.speaking||ss.pending;
+  if(busy)ss.cancel();
+  const go=()=>{try{ss.resume();}catch(e){}ss.speak(u);};
+  if(busy)setTimeout(go,120);else go();
 }
+// iPhone/Android pustí zvuk až po prvním dotyku: při prvním ťuknutí "odemknout" řeč.
+let speechUnlocked=false;
+function unlockSpeech(){
+  if(speechUnlocked||!('speechSynthesis' in window))return;speechUnlocked=true;
+  try{loadVoices();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch(e){}
+}
+['touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,unlockSpeech,{capture:true,once:false,passive:true}));
 const sayEn=(t,slow)=>speak(t,S.settings.accent,slow?0.55:0.9);
 function sayTimes(t,n){let i=0;const go=()=>{if(i++<n)speak(t,S.settings.accent,0.85,()=>setTimeout(go,700));};go();}
 
