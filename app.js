@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const APP_VER=9;
+const APP_VER=10;
 const KEY='osli-mustek.v2', DAY=864e5;
 const INT=[0,0,DAY,3*DAY,7*DAY,21*DAY];
 const LEVELS=['A2','B1','B2','C1','C2'];
@@ -24,7 +24,7 @@ async function loadWords(){
 }
 
 // ---------- state (always kept on the device; synced to Firebase when signed in) ----------
-function defaults(){return {progress:{},custom:[],settings:{accent:'en-GB',perLesson:5,newLevel:'auto',proMix:0.2},streak:{last:'',n:0},at:0,syncedUid:''};}
+function defaults(){return {progress:{},custom:[],settings:{accent:'en-GB',audioSrc:'auto',perLesson:5,newLevel:'auto',proMix:0.2},streak:{last:'',n:0},at:0,syncedUid:''};}
 let S=loadLocal();
 function loadLocal(){try{const r=localStorage.getItem(KEY);if(r){const d=defaults(),o=JSON.parse(r);return {...d,...o,settings:{...d.settings,...(o.settings||{})},streak:{...d.streak,...(o.streak||{})}};}}catch(e){}return defaults();}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -169,7 +169,7 @@ function playAudio(text,lang,rate,onend){
 }
 function speak(text,lang,rate,onend){
   const ss=window.speechSynthesis;
-  if(!ss||useAudio){playAudio(text,lang,rate,onend);return;}
+  if(!ss||useAudio||SET().audioSrc==='net'){playAudio(text,lang,rate,onend);return;}
   if(!voices.length)loadVoices();
   const v=pickVoice(lang);
   if(!voices.length||!v){playAudio(text,lang,rate,onend);return;}
@@ -257,15 +257,27 @@ function freshWords(n){
 }
 
 // ---------- home ----------
-let filter='Vše',query='',limit=40;
+let filter='',query='',limit=40,cat='';
+// Složky: v úrovních jsou jen nová slova; probraná slova mají vlastní složky.
+const boxOf=w=>prog(w.id).box;
+function folders(){
+  const f=TRACKS.map(L=>({k:L,name:TRACK_NAME[L],sub:'nová slova',em:L===PRO?'🏗️':'📘',f:w=>w.level===L&&!w.src&&boxOf(w)===0}));
+  f.push({k:'Učím se',name:'Učím se',sub:'rozpracovaná',em:'🔄',f:w=>{const b=boxOf(w);return b>0&&b<4;}});
+  f.push({k:'Umím',name:'Umím',sub:'naučená slova',em:'✅',f:w=>boxOf(w)>=4});
+  if(S.custom.length)f.push({k:'Moje',name:'Moje',sub:'vlastní slova',em:'✍️',f:w=>!!w.src});
+  return f;
+}
+function wordList(){
+  const q=query.trim().toLowerCase();
+  const fo=folders().find(x=>x.k===filter);
+  if(!fo&&!q)return [];
+  return all().filter(w=>(!fo||fo.f(w))&&(!fo||!cat||w.cat===cat)&&(!q||w.en.toLowerCase().includes(q)||String(w.cz).toLowerCase().includes(q)));
+}
 function home(keep){
   VIEW='home';SES=null;
   const c=counts(),fresh=freshWords(S.settings.perLesson).length;
   const st=S.streak.last===today()||S.streak.last===dstr(Date.now()-DAY)?S.streak.n:0;
-  const q=query.trim().toLowerCase();
-  const list=all().filter(w=>(filter==='Vše'||w.level===filter||(filter==='Moje'&&w.src)||(filter==='Učím se'&&prog(w.id).box>0))&&(!q||w.en.toLowerCase().includes(q)||String(w.cz).toLowerCase().includes(q)));
-  const shown=list.slice(0,limit);
-  const chips=['Vše',...LEVELS,PRO,'Učím se',...(S.custom.length?['Moje']:[])];
+  const list=wordList(),shown=list.slice(0,limit),FO=folders(),cur=FO.find(x=>x.k===filter);
   render(`
   <header>
     <div class="brand">
@@ -293,10 +305,10 @@ function home(keep){
     <div class="legend"><span><i style="background:var(--good)"></i>umím</span><span><i style="background:var(--learn)"></i>učím se</span><span><i style="background:var(--line)"></i>nová</span></div>
   </section>
   <section id="list" style="display:flex;flex-direction:column;gap:12px">
-    <div class="row" style="justify-content:space-between"><h3 style="font-size:22px">Slovíčka <span class="muted" style="font-size:16px;font-weight:500">${list.length}</span></h3><button class="btn small soft" data-act="add">+ Přidat vlastní</button></div>
+    <div class="row" style="justify-content:space-between"><h3 style="font-size:22px">${cur?esc(cur.name)+' · '+esc(cur.sub):'Slovíčka'} ${cur||query.trim()?`<span class="muted" style="font-size:16px;font-weight:500">${list.length}</span>`:''}</h3><button class="btn small soft" data-act="add">+ Přidat vlastní</button></div>
     <input id="search" class="field" type="search" placeholder="Hledat anglicky nebo česky" value="${esc(query)}" autocomplete="off" aria-label="Hledat slovíčko" style="font-size:17px">
-    <div class="chips">${chips.map(k=>`<button class="chip" data-act="filter" data-v="${esc(k)}" aria-pressed="${k===filter}">${esc(TRACK_NAME[k]||k)}</button>`).join('')}</div>
-    <div class="words" id="wordGrid">${shown.map(wordTile).join('')||'<p class="muted">Nic jsem nenašel.</p>'}</div>
+    ${cur?`<button class="btn ghost small" style="align-self:flex-start" data-act="filter" data-v="">← Zpět na složky</button>${(()=>{const inF=all().filter(cur.f),cc={};for(const w of inF)cc[w.cat]=(cc[w.cat]||0)+1;const ks=CATS.filter(k=>cc[k]);return ks.length>1?`<div class="chips" style="flex-wrap:wrap"><button class="chip" data-act="cat" data-v="" aria-pressed="${!cat}">Všechna ${inF.length}</button>${ks.map(k=>`<button class="chip" data-act="cat" data-v="${esc(k)}" aria-pressed="${cat===k}">${esc(k)} ${cc[k]}</button>`).join('')}</div>`:'';})()}`:`<div class="folders">${FO.map(x=>{const n=all().filter(x.f).length;return `<button class="folder" data-act="filter" data-v="${esc(x.k)}"><span class="em" aria-hidden="true">${x.em}</span><b>${esc(x.name)}</b><span>${esc(x.sub)}</span><span class="n">${n}</span></button>`;}).join('')}</div>`}
+    <div class="words" id="wordGrid">${shown.map(wordTile).join('')||(cur||query.trim()?'<p class="muted">Nic tu není.</p>':'')}</div>
     ${list.length>shown.length?`<button class="btn ghost block" data-act="more">Ukázat dalších ${Math.min(40,list.length-shown.length)}</button>`:''}
   </section>
   <section class="card settings">
@@ -307,6 +319,7 @@ function home(keep){
       ${PRO_MIX.map(o=>`<button data-act="promix" data-v="${o.v}" aria-pressed="${SET().proMix===o.v}">${o.t}</button>`).join('')}</div></div>
     <div class="row"><span>Nových slov v lekci</span><div class="seg">
       ${[3,5,8,12].map(n=>`<button data-act="per" data-v="${n}" aria-pressed="${SET().perLesson===n}">${n}</button>`).join('')}</div></div>
+    <div class="row"><span>Zdroj zvuku</span><div class="seg"><button data-act="audiosrc" data-v="auto" aria-pressed="${SET().audioSrc!=='net'}">Hlas telefonu</button><button data-act="audiosrc" data-v="net" aria-pressed="${SET().audioSrc==='net'}">Z internetu</button></div></div>
     <div class="row"><span>Zvuk</span><button class="btn ghost small" data-act="soundTest">Vyzkoušet zvuk</button></div>
     <div class="row"><span>Výslovnost</span><div class="seg">
       <button data-act="accent" data-v="en-GB" aria-pressed="${SET().accent==='en-GB'}">Britská</button>
@@ -504,7 +517,7 @@ function saveWord(){
   const key=g('fKey');
   const w={id:'c_'+slug(en)+'_'+Math.random().toString(36).slice(2,6),en,cz,say:g('fSay'),key,story:g('fStory')||(key?`[${key}] = {${cz}}`:''),scene:g('fScene')||'💡',ex:g('fEx'),exCz:g('fExCz'),ipa:'',cat:g('fCat'),level:g('fLevel'),src:'me'};
   S.custom=S.custom.concat([w]);saveLocal();rebuildIndex();FB.addCustom(w);
-  toast('Uloženo. Slovíčko přijde v příští lekci.');filter='Vše';home();
+  toast('Uloženo. Slovíčko přijde v příští lekci.');filter='Moje';home();
 }
 
 // ---------- backup ----------
@@ -545,11 +558,13 @@ const A={
   back:()=>{home();window.scrollTo(0,backScroll);},
   start:()=>startSession(false), practice:()=>startSession(true),
   open:t=>openWord(t.dataset.id),
-  filter:t=>{filter=t.dataset.v;limit=40;keepHome();},
-  lvl:t=>{filter=t.dataset.v;limit=40;keepHome();document.getElementById('list')?.scrollIntoView({behavior:'smooth',block:'start'});},
+  cat:t=>{cat=t.dataset.v;limit=40;keepHome();},
+  filter:t=>{filter=t.dataset.v;cat='';limit=40;keepHome();document.getElementById('list')?.scrollIntoView({block:'start'});},
+  lvl:t=>{filter=t.dataset.v;cat='';limit=40;keepHome();document.getElementById('list')?.scrollIntoView({behavior:'smooth',block:'start'});},
   more:()=>{limit+=40;keepHome();},
   accent:t=>{setDraft('accent',t.dataset.v);speak('Hello',t.dataset.v,0.9);},
   per:t=>setDraft('perLesson',+t.dataset.v),
+  audiosrc:t=>{setDraft('audioSrc',t.dataset.v);A.soundTest();},
   newlvl:t=>setDraft('newLevel',t.dataset.v),
   promix:t=>setDraft('proMix',+t.dataset.v),
   saveSet:()=>{const ch=dirty();if(draft)S.settings={...S.settings,...draft};draft=null;touchMeta();keepHome();toast(ch?'Nastavení uloženo, lekce se řídí novým nastavením.':'Nastavení je uložené (nic se nezměnilo).');},
@@ -561,7 +576,7 @@ const A={
   story:t=>{const w=byId(t.dataset.id);if(w)speak(storyPlain(w),'cs-CZ',0.95);},
   tryEn:()=>{const v=document.getElementById('fEn').value.trim();if(v)sayEn(v);else toast('Nejdřív napiš anglické slovo.');},
   studied:()=>{SES.queue.shift();next();},
-  soundTest:()=>{toast('Přehrávám zkušební zvuk…');const mode=useAudio||!window.speechSynthesis||!pickVoice(S.settings.accent)?'zvukový soubor z internetu':'hlas telefonu';toast('Přehrávám „Hello“ ('+mode+'). Verze aplikace '+APP_VER+'.');speak('Hello, this is a test.',S.settings.accent,0.9);},
+  soundTest:()=>{toast('Přehrávám zkušební zvuk…');const mode=useAudio||SET().audioSrc==='net'||!window.speechSynthesis||!pickVoice(S.settings.accent)?'zvukový soubor z internetu':'hlas telefonu';toast('Přehrávám „Hello“ ('+mode+'). Verze aplikace '+APP_VER+'.');speak('Hello, this is a test.',SET().accent,0.9);},
   quit:()=>{if('speechSynthesis' in window)speechSynthesis.cancel();try{AUD.pause();}catch(e){}home();},
   next:()=>next(),
   known:t=>{const id=t.dataset.id;setProgress(id,{...prog(id),box:5,due:Date.now()+21*DAY});toast('Označeno jako známé. Za pár týdnů ti ho připomenu.');home();window.scrollTo(0,backScroll);},
@@ -596,10 +611,9 @@ app.addEventListener('input',e=>{
     clearTimeout(searchT);
     searchT=setTimeout(()=>{
       query=t.value;limit=40;
-      const q=query.trim().toLowerCase();
-      const list=all().filter(w=>(filter==='Vše'||w.level===filter||(filter==='Moje'&&w.src)||(filter==='Učím se'&&prog(w.id).box>0))&&(!q||w.en.toLowerCase().includes(q)||String(w.cz).toLowerCase().includes(q)));
+      const list=wordList();
       const g=document.getElementById('wordGrid');
-      if(g)g.innerHTML=list.slice(0,limit).map(wordTile).join('')||'<p class="muted">Nic jsem nenašel.</p>';
+      if(g)g.innerHTML=list.slice(0,limit).map(wordTile).join('')||(query.trim()?'<p class="muted">Nic jsem nenašel.</p>':'');
     },200);
     return;
   }
