@@ -1,5 +1,6 @@
 (function(){
 'use strict';
+const APP_VER=7;
 const KEY='osli-mustek.v2', DAY=864e5;
 const INT=[0,0,DAY,3*DAY,7*DAY,21*DAY];
 const LEVELS=['A2','B1','B2','C1','C2'];
@@ -306,13 +307,14 @@ function home(keep){
       ${PRO_MIX.map(o=>`<button data-act="promix" data-v="${o.v}" aria-pressed="${SET().proMix===o.v}">${o.t}</button>`).join('')}</div></div>
     <div class="row"><span>Nových slov v lekci</span><div class="seg">
       ${[3,5,8,12].map(n=>`<button data-act="per" data-v="${n}" aria-pressed="${SET().perLesson===n}">${n}</button>`).join('')}</div></div>
+    <div class="row"><span>Zvuk</span><button class="btn ghost small" data-act="soundTest">Vyzkoušet zvuk</button></div>
     <div class="row"><span>Výslovnost</span><div class="seg">
       <button data-act="accent" data-v="en-GB" aria-pressed="${SET().accent==='en-GB'}">Britská</button>
       <button data-act="accent" data-v="en-US" aria-pressed="${SET().accent==='en-US'}">Americká</button></div></div>
     <div class="row" style="justify-content:flex-end"><button class="btn small ${draft&&dirty()?"":"ghost"}" data-act="saveSet" ${draft&&dirty()?"":"disabled"}>Potvrdit</button></div>
     <div class="row"><span>Účet</span>${FB.user?`<button class="btn ghost small" data-act="logout">Odhlásit</button>`:FB.ready?`<button class="btn soft small" data-act="login">Přihlásit přes Google</button>`:'<span class="muted" style="font-size:14px">synchronizace není nastavená</span>'}</div>
     <div class="row"><span>Záloha postupu</span><div class="row"><button class="btn ghost small" data-act="export">Stáhnout</button><button class="btn ghost small" data-act="import">Nahrát</button></div></div>
-    <p class="muted" style="font-size:14px">Na mobilu si aplikaci přidej na plochu: v prohlížeči zvol Sdílet nebo menu ⋮ a pak „Přidat na plochu“.</p>
+    <p class="muted" style="font-size:14px">Na mobilu si aplikaci přidej na plochu: v prohlížeči zvol Sdílet nebo menu ⋮ a pak „Přidat na plochu“. <b>Verze ${APP_VER}</b></p>
   </section>`,keep);
 }
 
@@ -559,6 +561,7 @@ const A={
   story:t=>{const w=byId(t.dataset.id);if(w)speak(storyPlain(w),'cs-CZ',0.95);},
   tryEn:()=>{const v=document.getElementById('fEn').value.trim();if(v)sayEn(v);else toast('Nejdřív napiš anglické slovo.');},
   studied:()=>{SES.queue.shift();next();},
+  soundTest:()=>{const mode=useAudio||!window.speechSynthesis||!pickVoice(S.settings.accent)?'zvukový soubor z internetu':'hlas telefonu';toast('Přehrávám „Hello“ ('+mode+'). Verze aplikace '+APP_VER+'.');speak('Hello, this is a test.',S.settings.accent,0.9);},
   quit:()=>{if('speechSynthesis' in window)speechSynthesis.cancel();try{AUD.pause();}catch(e){}home();},
   next:()=>next(),
   known:t=>{const id=t.dataset.id;setProgress(id,{...prog(id),box:5,due:Date.now()+21*DAY});toast('Označeno jako známé. Za pár týdnů ti ho připomenu.');home();window.scrollTo(0,backScroll);},
@@ -614,6 +617,11 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&SES&&SES.cur&&SES.cu
   if(!WORDS.length){render('<div class="loading"><p>Slovíčka se nepodařilo načíst. Zkontroluj připojení a obnov stránku.</p></div>');return;}
   home();
   FB.init();
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator){
+    // Když se stáhne nová verze aplikace, stránka se jednou sama obnoví.
+    const had=!!navigator.serviceWorker.controller;let reloaded=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!reloaded){reloaded=true;location.reload();}});
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+  }
 })();
 })();
